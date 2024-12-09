@@ -168,16 +168,25 @@ def register_user():
 
 @app.route('/auth', methods=['POST'])
 @limiter.limit("10 per second")
+@app.route('/auth', methods=['POST'])
 def auth():
-    data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
-    conn = sqlite3.connect('jwks_server.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, password_hash FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
-    if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
+    expired = request.args.get('expired', 'false') == 'true'
+    kid, private_key = get_key(expired)
+
+    if private_key is None:
+        return jsonify({"error": "No appropriate key found"}), 404
+
+    expiry_time = time.time() - 3600 if expired else time.time() + 3600
+    token = jwt.encode(
+        {
+            'sub': 'userABC',
+            'exp': expiry_time
+        },
+        private_key,
+        algorithm='RS256',
+        headers={"kid": str(kid)}
+    )
+    return jsonify({"token": token}), 200
     user_id, password_hash = user
     try:
         ph.verify(password_hash, password)
