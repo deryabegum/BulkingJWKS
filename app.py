@@ -168,7 +168,6 @@ def register_user():
 
 @app.route('/auth', methods=['POST'])
 @limiter.limit("10 per second")
-@app.route('/auth', methods=['POST'])
 def auth():
     expired = request.args.get('expired', 'false') == 'true'
     kid, private_key = get_key(expired)
@@ -187,18 +186,9 @@ def auth():
         headers={"kid": str(kid)}
     )
     return jsonify({"token": token}), 200
-    user_id, password_hash = user
-    try:
-        ph.verify(password_hash, password)
-    except:
-        return jsonify({"error": "Invalid credentials"}), 401
-    ip = request.remote_addr
-    cursor.execute("INSERT INTO auth_logs (request_ip, user_id) VALUES (?, ?)", (ip, user_id))
-    conn.commit()
-    conn.close()
-    return jsonify({"message": "Authentication successful"}), 200
 
 if __name__ == '__main__':
     init_db()
     initialize_keys()
     app.run(host='0.0.0.0', port=8080)
+
